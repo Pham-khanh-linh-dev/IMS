@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Cập Nhật Thông Tin Thực Tập</title>
+
+    <!-- Tailwind CSS CDN (For Professional UI) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 (For Beautiful Notifications) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .tdtu-blue {
+            background-color: #0b3c5d;
+        }
+
+        /* TDTU Main Color */
+        .tdtu-red {
+            background-color: #c90b0b;
+        }
+
+        /* Accent Color */
+        /* Custom Scrollbar for Dropdown */
+        .autocomplete-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .autocomplete-dropdown::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .form-input {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .required-mark::after {
+            content: " *";
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-800 antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-white shadow">
+        <div class="h-2 flex w-full">
+            <div class="tdtu-blue w-2/3 h-full"></div>
+            <div class="tdtu-red w-1/3 h-full"></div>
+        </div>
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <!-- Logo TDTU Clickable -->
+                <a href="https://tdtu.edu.vn/" target="_blank" title="Trang chủ Đại học Tôn Đức Thắng (Tab mới)"
+                    class="hover:opacity-80 transition cursor-pointer flex-shrink-0">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_T%C3%B4n_%C4%90%E1%BB%A9c_Th%E1%BA%AFng.png/320px-Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_T%C3%B4n_%C4%90%E1%BB%A9c_Th%E1%BA%AFng.png"
+                        alt="TDTU Logo" class="h-10 md:h-12 object-contain drop-shadow-sm">
+                </a>
+                <h1
+                    class="text-xl md:text-2xl font-bold tracking-tight text-gray-900 ml-2 border-l-2 border-gray-300 pl-4">
+                    CỔNG TIẾP NHẬN THỰC TẬP</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-4 py-8 flex-grow">
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            <!-- Title Area -->
+            <div class="bg-blue-50/50 border-b border-gray-100 p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-gray-800">Biểu mẫu cập nhật thông tin 2026</h2>
+                <p class="text-gray-500 mt-2 text-sm leading-relaxed">
+                    Vui lòng điền chính xác thông tin để Hệ thống xét duyệt tự động.<br>
+                    Tra cứu Tên công ty từ danh sách được gợi ý nếu có. Email của bạn sẽ được bảo mật.
+                </p>
+            </div>
+
+            <form id="studentForm" class="p-6 md:p-8" onsubmit="handleFormSubmit(event)">
+                <!-- Grid Layout for Personal Info -->
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 border-l-4 border-blue-500 pl-3">Thông Tin Cá Nhân
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- MSSV -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Mã Số Sinh Viên
+                            (MSSV)</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-regular fa-id-card text-gray-400"></i>
+                            </div>
+                            <input type="text" id="mssv" required class="form-input pl-10 bg-gray-50 focus:outline-none"
+                                placeholder="VD: 520H0001" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Email Sinh Viên
+                            (TDTU)</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-regular fa-envelope text-gray-400"></i>
+                            </div>
+                            <input type="email" id="email" required pattern=".*@student\.tdtu\.edu\.vn$"
+                                class="form-input pl-10 bg-gray-50 focus:outline-none cursor-not-allowed"
+                                placeholder="mssv@student.tdtu.edu.vn" readonly>
+                        </div>
+                        <p class="text-xs text-blue-600 mt-1"><i class="fa-solid fa-lock"></i> Đã đồng bộ với tài khoản
+                            Google đăng nhập.</p>
+                    </div>
+
+                    <!-- Full Name -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Họ và Tên</label>
+                        <input type="text" id="fullName" required class="form-input" placeholder="VD: Nguyễn Văn A">
+                    </div>
+
+                    <!-- Course -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Học Phần (Có thể chọn nhiều)</label>
+                        <div class="mt-2 grid grid-cols-1 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="course" value="Tập sự nghề nghiệp" 
+                                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Tập sự nghề nghiệp</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="course" value="Kiến tập công nghiệp" 
+                                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Kiến tập công nghiệp</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="course" value="Thực tập tốt nghiệp" 
+                                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Thực tập Tốt nghiệp</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Semester -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Học Kỳ</label>
+                            <select id="semester" required class="form-input">
+                                <option value="" disabled selected>Chọn...</option>
+                                <option value="Học Kỳ 1">Học Kỳ 1</option>
+                                <option value="Học Kỳ 2">Học Kỳ 2</option>
+                                <option value="Học Kỳ 3">Học Kỳ 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Năm Học</label>
+                            <select id="schoolYear" required class="form-input">
+                                <option value="2025 - 2026">2025 - 2026</option>
+                                <option value="2026 - 2027" selected>2026 - 2027</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-6 border-gray-200">
+
+                <!-- Status Selection -->
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 border-l-4 border-blue-500 pl-3">Tình Trạng Thực Tập
+                </h3>
+
+                <div class="mb-6 flex flex-col md:flex-row gap-4">
+                    <label
+                        class="cursor-pointer border border-gray-200 rounded-lg p-4 flex-1 hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center shadow-sm">
+                        <input type="radio" name="status" value="Đã có doanh nghiệp" onchange="toggleCompanySection()"
+                            class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                        <span class="ml-3 font-medium text-gray-700">Đã chốt doanh nghiệp thực tập</span>
+                    </label>
+                    <label
+                        class="cursor-pointer border border-gray-200 rounded-lg p-4 flex-1 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center shadow-sm">
+                        <input type="radio" name="status" value="Chưa có doanh nghiệp" onchange="toggleCompanySection()"
+                            class="w-4 h-4 text-gray-600 border-gray-300 focus:ring-gray-500">
+                        <span class="ml-3 font-medium text-gray-700">Chưa có doanh nghiệp (Xin bảo lưu/Rút)</span>
+                    </label>
+                </div>
+
+                <!-- Company Information (Hidden by default or toggled) -->
+                <div id="companySection" class="hidden fade-in bg-gray-50 p-5 rounded-lg border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-md font-semibold text-gray-800"><i
+                                class="fa-solid fa-building mr-2 text-blue-500"></i>Thông Tin Doanh Nghiệp</h4>
+                        <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200"
+                            id="dbStatus">
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang nạp cơ sở dữ liệu...
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <!-- Tax Code -->
+                        <div class="md:col-span-2 relative">
+                            <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Mã Số Thuế
+                                (Gõ để tìm kiếm)</label>
+                            <div class="relative">
+                                <input type="text" id="taxCode" class="form-input" placeholder="VD: 0101248141..."
+                                    autocomplete="off">
+                                <!-- Dropdown suggestions -->
+                                <ul id="suggestionList"
+                                    class="hidden absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto autocomplete-dropdown mt-1">
+                                    <!-- Suggestions will be injected here via JS -->
+                                </ul>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Gợi ý tự động từ dữ liệu Hệ thống khi bạn nhập MST.
+                                Yêu cầu nhập chính xác MST (10 hoặc 13 số).</p>
+                        </div>
+
+                        <!-- Autocomplete Company Name -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Tên Doanh
+                                Nghiệp</label>
+                            <input type="text" id="companyName" class="form-input"
+                                placeholder="Tên công ty sẽ tự động điền hoặc nhập thủ công" autocomplete="off">
+                        </div>
+
+                        <!-- Email Company -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email Công Ty (HR / Người hướng
+                                dẫn)</label>
+                            <input type="email" id="companyEmail" class="form-input" placeholder="hr@domain.com">
+                        </div>
+
+                        <!-- Address -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1 required-mark">Địa Chỉ Doanh
+                                Nghiệp</label>
+                            <input type="text" id="companyAddress" class="form-input"
+                                placeholder="Tòa nhà, Phường, Quận, Thành phố...">
+                        </div>
+
+                        <!-- Website -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Website Doanh Nghiệp</label>
+                            <input type="text" id="companyWebsite" class="form-input" placeholder="https://www...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <button type="submit" id="submitBtn"
+                        class="w-full tdtu-blue hover:opacity-90 text-white font-bold py-3.5 px-4 rounded-lg shadow-md transition-all flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-paper-plane mr-2"></i> NỘP HỒ SƠ THỰC TẬP
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-gray-400 py-6 text-center text-sm">
+        <p>Hệ thống Quản lý Thực tập Tự động &copy; 2026. Data Validation Powered by VietQR API.</p>
+    </footer>
+
+    <script>
+        let globalCompanies = [];
+
+        // ĐỒNG BỘ EMAIL ĐĂNG NHẬP (Chống mạo danh tuyệt đối)
+        // Biến activeUserEmail sẽ được Google Server tiêm vào đây trước khi gửi cho Trình duyệt
+        const loggedInEmail = "<?= activeUserEmail ?>";
+
+        if (loggedInEmail && loggedInEmail.endsWith("@student.tdtu.edu.vn")) {
+            document.getElementById('email').value = loggedInEmail;
+
+            // Tách MSSV từ Email (Ví dụ: 520h0001@... -> 520H0001)
+            const getMssvRaw = loggedInEmail.split("@")[0].toUpperCase();
+            document.getElementById('mssv').value = getMssvRaw;
+        } else if (loggedInEmail && loggedInEmail !== "") {
+            Swal.fire({
+                icon: 'error',
+                title: 'Tài Khoản Không Hợp Lệ',
+                text: 'Vui lòng đăng nhập bằng Email sinh viên của trường (@student.tdtu.edu.vn) !',
+                allowOutsideClick: false,
+                showConfirmButton: false // Khóa cứng trình duyệt không cho thao tác
+            });
+        }
+
+        // Mở / Đóng mục Công ty dựa vào lựa chọn
+        function toggleCompanySection() {
+            const status = document.querySelector('input[name="status"]:checked');
+            const companySection = document.getElementById('companySection');
+            const companyInputs = companySection.querySelectorAll('input:not(#companyWebsite):not(#companyEmail)'); // required fields
+
+            if (status && status.value === "Đã có doanh nghiệp") {
+                companySection.classList.remove('hidden');
+                companyInputs.forEach(el => el.setAttribute('required', 'true'));
+            } else {
+                companySection.classList.add('hidden');
+                companyInputs.forEach(el => el.removeAttribute('required'));
+            }
+        }
+
+        // FETCH DATA CÔNG TY SAU KHI LOAD PAGE (Vô hình, không lag UI)
+        document.addEventListener("DOMContentLoaded", () => {
+            google.script.run
+                .withSuccessHandler((data) => {
+                    globalCompanies = data;
+                    const statusBadge = document.getElementById('dbStatus');
+                    statusBadge.className = "text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-check-circle mr-1"></i> Đã nạp ${data.length} Doanh nghiệp`;
+                })
+                .withFailureHandler((err) => {
+                    document.getElementById('dbStatus').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500"></i> Lỗi nạp Database`;
+                })
+                .getCompanyListForWebApp();
+        });
+
+        // LOGIC GỢI Ý THEO MÃ SỐ THUẾ (AUTOCOMPLETE)
+        const taxCodeInput = document.getElementById('taxCode');
+        const companyNameInput = document.getElementById('companyName');
+        const suggestionList = document.getElementById('suggestionList');
+
+        taxCodeInput.addEventListener('input', function () {
+            const val = this.value.toLowerCase().trim();
+            suggestionList.innerHTML = '';
+
+            if (val.length < 3) { // MST thường cần nhập ít nhất 3 số để bắt đầu gợi ý
+                suggestionList.classList.add('hidden');
+                return;
+            }
+
+            // Tìm max 15 kết quả dựa trên Mã số thuế
+            const matches = globalCompanies.filter(c =>
+                c.taxCode.includes(val)
+            ).slice(0, 15);
+
+            if (matches.length > 0) {
+                matches.forEach(match => {
+                    const li = document.createElement('li');
+                    li.className = "px-4 py-3 cursor-pointer border-b border-gray-100 hover:bg-blue-50 transition-colors";
+                    li.innerHTML = `
+            <div class="font-semibold text-blue-600"><i class="fa-solid fa-building-columns mr-1"></i> MST: ${match.taxCode}</div>
+            <div class="text-sm text-gray-800 mt-1">${match.name}</div>
+            <div class="text-xs text-gray-500 mt-1">${match.address.length > 50 ? match.address.substring(0, 50) + '...' : match.address}</div>
+          `;
+
+                    // Khi sinh viên Click vào Gợi ý -> Tự động điền tất cả Form
+                    li.addEventListener('click', () => {
+                        taxCodeInput.value = match.taxCode;
+                        companyNameInput.value = match.name;
+                        document.getElementById('companyAddress').value = match.address;
+                        suggestionList.classList.add('hidden');
+                    });
+
+                    suggestionList.appendChild(li);
+                });
+                suggestionList.classList.remove('hidden');
+            } else {
+                suggestionList.classList.add('hidden');
+            }
+        });
+
+        // Tắt gợi ý khi click ra ngoài
+        document.addEventListener('click', function (e) {
+            if (e.target !== taxCodeInput && e.target !== suggestionList) {
+                suggestionList.classList.add('hidden');
+            }
+        });
+
+        // XỬ LÝ NỘP FORM (ĐẨY XUỐNG BACKEND)
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            // Lấy danh sách Học Phần được check
+            const checkedCourses = document.querySelectorAll('input[name="course"]:checked');
+            if (checkedCourses.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng chọn ít nhất 1 Học Phần!' });
+                return;
+            }
+            // Gộp thành chuỗi cách nhau bằng dấu phẩy
+            const courseValue = Array.from(checkedCourses).map(cb => cb.value).join(", ");
+
+            const statusRadio = document.querySelector('input[name="status"]:checked');
+            if (!statusRadio) {
+                Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng chọn Tình trạng thực tập!' });
+                return;
+            }
+
+            // Xây dựng Object Data
+            const studentData = {
+                mssv: document.getElementById('mssv').value,
+                email: document.getElementById('email').value,
+                fullName: document.getElementById('fullName').value,
+                course: courseValue,
+                semester: document.getElementById('semester').value,
+                schoolYear: document.getElementById('schoolYear').value,
+                status: statusRadio.value,
+
+                taxCode: document.getElementById('taxCode').value,
+                companyName: document.getElementById('companyName').value,
+                companyAddress: document.getElementById('companyAddress').value,
+                companyEmail: document.getElementById('companyEmail').value,
+                companyWebsite: document.getElementById('companyWebsite').value
+            };
+
+            // Đổi UI sang trạng thái Loading...
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> ĐANG GỬI HỒ SƠ...`;
+            btn.classList.replace('tdtu-blue', 'bg-gray-400');
+
+            // Gọi hàm đệ quy (Exponential Backoff) để đâm qua mọi điểm nghẽn
+            sendWithRetry(studentData, btn, originalText, 5); // Tối đa thử lại 5 lần, nếu 200 SV nầy nghẽn thì nó tự Retry giãn cách ra
+        }
+
+        // HÀM ĐỆ QUY TỰ ĐỘNG THỬ LẠI KHI MÁY CHỦ QUÁ TẢI (CORE CHỐNG SPAM)
+        function sendWithRetry(payload, btnElement, originalText, retriesLeft) {
+            google.script.run
+                .withSuccessHandler((res) => {
+                    if (res.success) {
+                        btnElement.disabled = false;
+                        btnElement.innerHTML = originalText;
+                        btnElement.classList.replace('bg-gray-400', 'tdtu-blue');
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành Công!',
+                            text: res.message,
+                            confirmButtonColor: '#0b3c5d'
+                        }).then(() => {
+                            document.getElementById('studentForm').reset();
+                            // Phục hồi lại cứng Email và MSSV sau khi Form bị Reset
+                            if (loggedInEmail) {
+                                document.getElementById('email').value = loggedInEmail;
+                                document.getElementById('mssv').value = loggedInEmail.split("@")[0].toUpperCase();
+                            }
+                            document.getElementById('suggestionList').classList.add('hidden');
+                            toggleCompanySection();
+                        });
+                    } else {
+                        // LỖI LOGIC TỪ BACKEND (Validate sai, Mạo danh...): CẦN BÁO LỖI NGAY, KHÔNG RETRY!
+                        btnElement.disabled = false;
+                        btnElement.innerHTML = originalText;
+                        btnElement.classList.replace('bg-gray-400', 'tdtu-blue');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi Xác Thực',
+                            text: res.message
+                        });
+                    }
+                })
+                .withFailureHandler((err) => {
+                    // Lỗi Tường lửa hoặc Mạng tải nặng (Vượt 30 lượt đồng thời): TIẾN HÀNH RETRY
+                    processFailure(payload, btnElement, originalText, retriesLeft, err.message || "Hệ thống đang nghẽn");
+                })
+                .submitFromWebApp(payload);
+        }
+
+        // BẮT LỖI VÀ CHỜ RANDOM (JITTER) RỒI ĐÂM LẠI
+        function processFailure(payload, btnElement, originalText, retriesLeft, errorMsg) {
+            if (retriesLeft > 0) {
+                // Đang nghẽn thật, nhưng mình im lặng chia lại giờ cho SV này bằng thuật toán Jitter (1.5s -> 3.5s)
+                let delayMs = Math.random() * 2000 + 1500;
+
+                // Cập nhật lên Button để sinh viên biết máy đang tự động cố gắng (Chống việc nó hoảng loạn tắt Web)
+                btnElement.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-bounce mr-2"></i> Kẹt mạng. Đang tự gỡ (${retriesLeft})...`;
+
+                setTimeout(() => {
+                    btnElement.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> CHEN HÀNG LẦN MỚI...`;
+                    sendWithRetry(payload, btnElement, originalText, retriesLeft - 1);
+                }, delayMs);
+            } else {
+                // Hết 5 lần (Chờ tổng cũng tầm 15s) mà vẫn đen đủi bị nghẽn
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+                btnElement.classList.replace('bg-gray-400', 'tdtu-blue');
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Đang cao điểm',
+                    text: 'Hàng ngàn sinh viên đang nộp cùng lúc. Hệ thống đã cố chen vào 5 lần nhưng chưa được. Vui lòng đợi 10 giây và bấm nút Nộp lại nhé!'
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>
+console.log(`🚀 Bắt đầu bắn ${CONCURRENT_USERS} request cùng lúc...`);
+
+for (let i = 1; i <= CONCURRENT_USERS; i++) { let mockData={ email: "520h0" + String(i).padStart(3, '0' )
+    + "@student.tdtu.edu.vn" , mssv: "520H0" + String(i).padStart(3, '0' ), fullName: "Sinh viên Test Tải " + i,
+    course: "Tập sự nghề nghiệp" , semester: "HK2 - 2026" , status: "Chưa có doanh nghiệp" , taxCode: "" ,
+    companyName: "" , companyAddress: "" , companyWebsite: "" , companyEmail: "" }; google.script.run
+    .withSuccessHandler(res=> {
+    if (res.success) {
+    console.log(`✅ [SV ${i}] VÀO SHEET THÀNH CÔNG!`);
+    } else {
+    console.error(`⚠️ [SV ${i}] BỊ BACKEND TỪ CHỐI:`, res.message);
+    }
+    })
+    .withFailureHandler(err => {
+    // Đây mới là lúc lỗi do đứt mạng hoặc Google sập do quá tải 30 connections
+    console.error(`❌ [SV ${i}] MÁY CHỦ GOOGLE QUÁ TẢI (RỚT MẠNG):`, err.message);
+    })
+    .submitFromWebApp(mockData);
+    }
