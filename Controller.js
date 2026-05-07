@@ -71,30 +71,76 @@ function pullFormResponses() {
   const data = responseSheet.getDataRange().getValues();
   if (data.length <= 1) return 0; // Chỉ có header
 
+  // FIX: Tự động tìm vị trí cột dựa vào header thay vì hardcode
+  const headers = data[0];
+  const colMap = {};
+  for (let i = 0; i < headers.length; i++) {
+    const h = (headers[i] || "").toString().toLowerCase().trim();
+    colMap[h] = i;
+  }
+
+  // Hàm helper để tìm cột bằng keywords (giống StudentService.extractValue)
+  function findColIndex(keywords) {
+    for (let kw of keywords) {
+      const key = kw.toLowerCase().trim();
+      if (colMap[key] !== undefined) return colMap[key];
+    }
+    for (let header in colMap) {
+      for (let kw of keywords) {
+        if (header.includes(kw.toLowerCase())) return colMap[header];
+      }
+    }
+    return -1;
+  }
+
+  const colTimestamp = 0; // Google Forms luôn đặt timestamp ở cột 0
+  const colMSSV = findColIndex(["mssv", "mã số sinh viên", "mã sinh viên"]);
+  const colName = findColIndex(["họ và tên", "họ tên", "tên sinh viên"]);
+  const colCourse = findColIndex(["học phần", "môn học", "tên học phần"]);
+  const colSemester1 = findColIndex(["học kỳ", "học kì", "kỳ"]);
+  const colSemester2 = findColIndex(["năm học", "năm"]);
+  const colStatus = findColIndex(["trạng thái thực tập", "tình trạng", "trạng thái"]);
+  const colTaxCode = findColIndex(["mã số thuế", "mst", "mã số doanh nghiệp"]);
+  const colCompany = findColIndex(["tên doanh nghiệp", "tên công ty", "cơ quan thực tập"]);
+  const colAddress = findColIndex(["địa chỉ doanh nghiệp", "địa chỉ công ty", "địa chỉ trụ sở"]);
+  const colWebsite = findColIndex(["website doanh nghiệp", "website", "trang web"]);
+  const colEmail = findColIndex(["email doanh nghiệp", "email công ty", "email đơn vị"]);
+
   const newRows = [];
   const rawRows = [];
 
   for (let i = lastProcessedRow; i < data.length; i++) {
     const row = data[i];
-    if (row.length < 12) continue; // Không đủ cột
+
+    // Helper: Lấy giá trị từ cột (nếu cột không tìm thấy, trả rỗng)
+    function getCell(colIndex) {
+      if (colIndex < 0) return "";
+      return (row[colIndex] || "").toString();
+    }
 
     // Parse thành payload giống như onFormSubmit
+    let semester = "";
+    const sem = getCell(colSemester1);
+    const year = getCell(colSemester2);
+    if (sem && year) semester = `${sem} - ${year}`;
+    else if (sem) semester = sem;
+
     const payload = {
-      "MSSV": row[1] ? row[1].toString() : "",
-      "Họ và Tên": row[2] ? row[2].toString() : "",
-      "Học Phần": row[3] ? row[3].toString() : "",
-      "Học Kỳ": row[4] ? row[4].toString() : "",
-      "Năm Học": row[5] ? row[5].toString() : "",
-      "Trạng thái thực tập": row[6] ? row[6].toString() : "",
-      "Mã Số Doanh Nghiệp/ Mã Số Thuế": row[7] ? row[7].toString() : "",
-      "Tên Doanh Nghiệp (Tiếng Việt)": row[8] ? row[8].toString() : "",
-      "Địa Chỉ Doanh Nghiệp": row[9] ? row[9].toString() : "",
-      "Website Doanh Nghiệp": row[10] ? row[10].toString() : "",
-      "Email Doanh Nghiệp": row[11] ? row[11].toString() : ""
+      "MSSV": getCell(colMSSV),
+      "Họ và Tên": getCell(colName),
+      "Học Phần": getCell(colCourse),
+      "Học Kỳ": getCell(colSemester1),
+      "Năm Học": getCell(colSemester2),
+      "Trạng thái thực tập": getCell(colStatus),
+      "Mã Số Doanh Nghiệp/ Mã Số Thuế": getCell(colTaxCode),
+      "Tên Doanh Nghiệp (Tiếng Việt)": getCell(colCompany),
+      "Địa Chỉ Doanh Nghiệp": getCell(colAddress),
+      "Website Doanh Nghiệp": getCell(colWebsite),
+      "Email Doanh Nghiệp": getCell(colEmail)
     };
 
-    const mssv = (row[1] || "").toString().toUpperCase().replace(/\s/g, '');
-    const timestamp = new Date(row[0]); // Giả sử cột 0 là timestamp
+    const mssv = getCell(colMSSV).toUpperCase().replace(/\s/g, '');
+    const timestamp = new Date(row[colTimestamp]); // Cột 0 là timestamp từ Google Forms
 
     // Thêm vào queue
     newRows.push([timestamp, JSON.stringify(payload), "Google Form (Polling)", "PENDING", mssv]);
