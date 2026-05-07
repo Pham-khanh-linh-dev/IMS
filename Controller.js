@@ -44,7 +44,97 @@ function onFormSubmit(e) {
   }
 }
 
-// Trigger (TẦNG 2)
+// ═══════════════════════════════════════════════════════════════
+// PULL FORM RESPONSES — Polling từ Google Form responses để tránh quota trigger
+// Được gọi bởi processQueueJob() mỗi phút
+// ═══════════════════════════════════════════════════════════════
+function pullFormResponses() {
+  const props = PropertiesService.getScriptProperties();
+  const lastProcessedRow = parseInt(props.getProperty("FORM_LAST_ROW") || "1"); // Header là row 1
+
+  const ss = getMasterSpreadsheet_();
+  const sheets = ss.getSheets();
+  let responseSheet = null;
+  for (let sheet of sheets) {
+    const name = sheet.getName();
+    if (name.startsWith("Dữ_Liệu_Thô_") || name === "Form Responses 1" || SYSTEM_CONFIG.FORM_RESPONSE_SHEET_NAMES.includes(name)) {
+      responseSheet = sheet;
+      break;
+    }
+  }
+
+  if (!responseSheet) {
+    DatabaseRepo.logError("Pull Form", "Không tìm thấy sheet responses phù hợp.");
+    return 0;
+  }
+
+  const data = responseSheet.getDataRange().getValues();
+  if (data.length <= 1) return 0; // Chỉ có header
+
+  const newRows = [];
+  const rawRows = [];
+
+  for (let i = lastProcessedRow; i < data.length; i++) {
+    const row = data[i];
+    if (row.length < 12) continue; // Không đủ cột
+
+    // Parse thành payload giống như onFormSubmit
+    const payload = {
+      "MSSV": row[1] ? row[1].toString() : "",
+      "Họ và Tên": row[2] ? row[2].toString() : "",
+      "Học Phần": row[3] ? row[3].toString() : "",
+      "Học Kỳ": row[4] ? row[4].toString() : "",
+      "Năm Học": row[5] ? row[5].toString() : "",
+      "Trạng thái thực tập": row[6] ? row[6].toString() : "",
+      "Mã Số Doanh Nghiệp/ Mã Số Thuế": row[7] ? row[7].toString() : "",
+      "Tên Doanh Nghiệp (Tiếng Việt)": row[8] ? row[8].toString() : "",
+      "Địa Chỉ Doanh Nghiệp": row[9] ? row[9].toString() : "",
+      "Website Doanh Nghiệp": row[10] ? row[10].toString() : "",
+      "Email Doanh Nghiệp": row[11] ? row[11].toString() : ""
+    };
+
+    const mssv = (row[1] || "").toString().toUpperCase().replace(/\s/g, '');
+    const timestamp = new Date(row[0]); // Giả sử cột 0 là timestamp
+
+    // Thêm vào queue
+    newRows.push([timestamp, JSON.stringify(payload), "Google Form (Polling)", "PENDING", mssv]);
+
+    // Backup vào raw data sheet
+    rawRows.push([timestamp].concat(row.slice(1))); // Từ cột 1 trở đi
+  }
+
+  // Batch write vào queue
+  if (newRows.length > 0) {
+    const queueSheet = DatabaseRepo.connect(SYSTEM_CONFIG.QUEUE_TAB_NAME);
+    const qLastRow = queueSheet.getLastRow();
+    const qMaxRows = queueSheet.getMaxRows();
+    if (qLastRow + newRows.length > qMaxRows) {
+      queueSheet.insertRowsAfter(qMaxRows, qLastRow + newRows.length - qMaxRows);
+    }
+    queueSheet.getRange(qLastRow + 1, 1, newRows.length, 5).setValues(newRows);
+  }
+
+  // Backup vào raw sheet nếu có
+  if (rawRows.length > 0) {
+    try {
+      const rawSheet = DatabaseRepo.connect(SYSTEM_CONFIG.RAW_DATA_WEBAPP); // Dùng chung sheet raw
+      const rLastRow = rawSheet.getLastRow();
+      const rMaxRows = rawSheet.getMaxRows();
+      if (rLastRow + rawRows.length > rMaxRows) {
+        rawSheet.insertRowsAfter(rMaxRows, rLastRow + rawRows.length - rMaxRows);
+      }
+      rawSheet.getRange(rLastRow + 1, 1, rawRows.length, 12).setValues(rawRows); // 12 cột
+    } catch (rawErr) {
+      DatabaseRepo.logError("Lỗi ghi Raw Form Data", rawErr.message);
+    }
+  }
+
+  // Cập nhật last processed row
+  props.setProperty("FORM_LAST_ROW", String(data.length));
+
+  return newRows.length;
+}
+
 function processQueueJob() {
   // SỬ DỤNG DOCUMENT LOCK: Chỉ khóa thao tác trên Sheet.
   // Không dùng ScriptLock ở đây để chừa đường cho WebApp (Tầng 1) dùng ScriptLock ghi RAM.
@@ -68,6 +158,16 @@ function processQueueJob() {
       }
     } catch (drainErr) {
       DatabaseRepo.logError("Lỗi Drain WebApp", drainErr.message);
+    }
+
+    // ── PULL: Gom responses từ Google Form → Queue_Data + Raw_web_data ──
+    try {
+      const pulled = pullFormResponses();
+      if (pulled > 0) {
+        DatabaseRepo.logError("Form Pull", "Đã pull " + pulled + " responses từ Form vào Queue.");
+      }
+    } catch (pullErr) {
+      DatabaseRepo.logError("Lỗi Pull Form", pullErr.message);
     }
 
     const queueData = queueSheet.getDataRange().getValues();
