@@ -9,6 +9,9 @@ const SYSTEM_CONFIG = {
   DASHBOARD_TAB_NAME: "Dashboard",
   DICTIONARY_TAB_NAME: "Company_Dictionary",
 
+  // Danh sách sheet response của Form (nếu Form tạo sheet tên khác, hãy thêm vào đây)
+  FORM_RESPONSE_SHEET_NAMES: ["Form Responses 1"],
+
   ALLOWED_DOMAIN: "@student.tdtu.edu.vn",
 
   COL: {
