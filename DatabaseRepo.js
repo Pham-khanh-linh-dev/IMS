@@ -18,6 +18,9 @@ const DatabaseRepo = {
       sheet.getRange(1, 1, 1, SYSTEM_CONFIG.HEADERS.length)
         .setFontWeight("bold").setBackground("#4a86e8").setFontColor("white");
       sheet.setFrozenRows(1);
+      // TỐI ƯU HÓA CHỐNG AUTO-CAST ngay từ lúc tạo bảng: Đặt định dạng Text (@) cho 2 cột dễ mất mốc số 0
+      sheet.getRange(2, SYSTEM_CONFIG.COL.MSSV + 1, sheet.getMaxRows() - 1 || 1, 1).setNumberFormat("@");
+      sheet.getRange(2, SYSTEM_CONFIG.COL.TAX_CODE + 1, sheet.getMaxRows() - 1 || 1, 1).setNumberFormat("@");
     }
 
     // Khởi tạo header cho Queue_Data
@@ -97,12 +100,6 @@ const DatabaseRepo = {
     const maxRows = sheet.getMaxRows();
     if (rowCount > maxRows) {
       sheet.insertRowsAfter(maxRows, rowCount - maxRows);
-    }
-
-    // TỐI ƯU HÓA CHỐNG AUTO-CAST: Định dạng cột nhạy cảm thành Plain Text (@) trước khi setValues
-    if (rowCount > 1) {
-      sheet.getRange(2, SYSTEM_CONFIG.COL.MSSV + 1, rowCount - 1, 1).setNumberFormat("@");
-      sheet.getRange(2, SYSTEM_CONFIG.COL.TAX_CODE + 1, rowCount - 1, 1).setNumberFormat("@");
     }
 
     // TỐI ƯU HÓA DATA LOSS (BATCH UPDATE BY RANGE):
