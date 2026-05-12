@@ -104,7 +104,8 @@ function pullFormResponses() {
   const colCompany = findColIndex(["tên doanh nghiệp", "tên công ty", "cơ quan thực tập"]);
   const colAddress = findColIndex(["địa chỉ doanh nghiệp", "địa chỉ công ty", "địa chỉ trụ sở"]);
   const colWebsite = findColIndex(["website doanh nghiệp", "website", "trang web"]);
-  const colEmail = findColIndex(["email doanh nghiệp", "email công ty", "email đơn vị"]);
+  const colStudentEmail = findColIndex(["email sinh viên", "địa chỉ email", "email address", "email"]);
+  const colEmail = findColIndex(["email doanh nghiệp", "email công ty", "email đơn vị", "email dn", "email doanh nghiệp"]);
 
   const newRows = [];
   const rawRows = [];
@@ -136,6 +137,7 @@ function pullFormResponses() {
       "Tên Doanh Nghiệp (Tiếng Việt)": getCell(colCompany),
       "Địa Chỉ Doanh Nghiệp": getCell(colAddress),
       "Website Doanh Nghiệp": getCell(colWebsite),
+      "Email Sinh Viên": getCell(colStudentEmail),
       "Email Doanh Nghiệp": getCell(colEmail)
     };
 
@@ -481,6 +483,7 @@ function onOpen() {
     .addItem("📊 Cập nhật Dashboard & DS Chưa Công ty", "refreshDashboard")
     .addItem("📝 Khởi tạo Header", "initHeaders")
     .addItem("📋 Tạo Form chuẩn", "createStandardForm")
+    .addItem("🧠 Tạo báo cáo Gemini AI", "generateGeminiReport")
     .addSeparator()
     .addItem("Giả lập 400 Sinh viên nộp Form (Test Tải)", "simulate400FormSubmits")
     .addItem("Xóa toàn bộ Cache API (Dùng để Test)", "clearSystemCache")

@@ -12,6 +12,11 @@ const SYSTEM_CONFIG = {
   // Danh sách sheet response của Form (nếu Form tạo sheet tên khác, hãy thêm vào đây)
   FORM_RESPONSE_SHEET_NAMES: ["Form Responses 1"],
 
+  // Gemini AI config (Google Gemini 2.5 Flash)
+  GEMINI_MODEL: "gemini-2.5-flash",
+  GEMINI_API_KEY_PROPERTY: "GEMINI_API_KEY",
+  GEMINI_API_ENDPOINT: "https://generativelanguage.googleapis.com/v1beta/models",
+
   ALLOWED_DOMAIN: "@student.tdtu.edu.vn",
 
   COL: {
