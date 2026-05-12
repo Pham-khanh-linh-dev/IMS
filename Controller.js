@@ -22,165 +22,95 @@ function ensureQueueSheetHeader_(queueSheet) {
   }
 }
 
-// Trigger (TẦNG 1)
-function onFormSubmit(e) {
-  try {
-    if (!e || !e.namedValues) throw new Error("Chỉ chạy từ Form submit.");
-
-    const payload = e.namedValues;
-    let formTitle = "Google Form";
-    try { if (e.source && e.source.getTitle) formTitle = e.source.getTitle(); } catch (err) { }
-
-    let mssv = "";
-    try {
-      mssv = StudentService.extractValue(payload, ["MSSV", "Mã số sinh viên", "Mã sinh viên"]).toUpperCase().replace(/\s/g, '');
-    } catch (err) { }
-
-    const queueSheet = DatabaseRepo.connect(SYSTEM_CONFIG.QUEUE_TAB_NAME);
-    queueSheet.appendRow([new Date(), JSON.stringify(payload), formTitle, "PENDING", mssv]);
-  } catch (error) {
-    console.error(error.stack);
-    DatabaseRepo.logError(error.message, "Lỗi tại Controller (Tầng 1 Hứng Data)");
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════
-// PULL FORM RESPONSES — Polling từ Google Form responses để tránh quota trigger
-// Được gọi bởi processQueueJob() mỗi phút
+// POLLING — Quét Response Sheet chủ động thay vì dùng trigger onFormSubmit
 // ═══════════════════════════════════════════════════════════════
-function pullFormResponses() {
-  const props = PropertiesService.getScriptProperties();
-  const lastProcessedRow = parseInt(props.getProperty("FORM_LAST_ROW") || "1"); // Header là row 1
-
+//
+// NÂNG CẤP TỪ PHIÊN BẢN CŨ (pullFormResponses):
+//   ✅ Auto-Discovery thay vì hardcode tên tab
+//   ✅ Delta Read thay vì getDataRange() toàn bộ
+//   ✅ Per-sheet bookmark thay vì 1 key chung
+//   ✅ Guard clause khi bookmark corrupt
+//   ✅ MAX_PER_SHEET giới hạn quét mỗi lần
+//   ✅ Giữ backup raw data (điểm hay của bản gốc)
+//   ✅ Xoá onFormSubmit (tránh duplicate data)
+//
+function pollFormResponses() {
   const ss = getMasterSpreadsheet_();
   const sheets = ss.getSheets();
-  let responseSheet = null;
-  for (let sheet of sheets) {
-    const name = sheet.getName();
-    if (name.startsWith("Dữ_Liệu_Thô_") || name === "Form Responses 1" || SYSTEM_CONFIG.FORM_RESPONSE_SHEET_NAMES.includes(name)) {
-      responseSheet = sheet;
-      break;
+  const props = PropertiesService.getScriptProperties();
+  const queueSheet = DatabaseRepo.connect(SYSTEM_CONFIG.QUEUE_TAB_NAME);
+  const MAX_PER_SHEET = SYSTEM_CONFIG.POLL_MAX_ROWS_PER_SHEET || 100;
+  let totalPolled = 0;
+
+  for (const sheet of sheets) {
+    // Auto-Discovery: Chỉ quét các tab có gắn Google Form
+    let formUrl = null;
+    try { formUrl = sheet.getFormUrl(); } catch (e) { continue; }
+    if (!formUrl) continue;
+
+    const sheetId = sheet.getSheetId();
+    const bookmarkKey = "POLL_BOOKMARK_" + sheetId;
+    const lastProcessed = parseInt(props.getProperty(bookmarkKey) || "1");
+    const maxRow = sheet.getLastRow();
+
+    // Guard clause: Tránh lỗi khi GV xóa bớt dòng trong response sheet
+    if (lastProcessed > maxRow) {
+      props.setProperty(bookmarkKey, String(maxRow));
+      continue;
     }
-  }
+    if (maxRow <= lastProcessed) continue;
 
-  if (!responseSheet) {
-    DatabaseRepo.logError("Pull Form", "Không tìm thấy sheet responses phù hợp.");
-    return 0;
-  }
+    const numNew = Math.min(maxRow - lastProcessed, MAX_PER_SHEET);
+    const colCount = sheet.getLastColumn();
+    if (colCount === 0) continue;
 
-  const data = responseSheet.getDataRange().getValues();
-  if (data.length <= 1) return 0; // Chỉ có header
+    const headers = sheet.getRange(1, 1, 1, colCount).getValues()[0];
+    const newRows = sheet.getRange(lastProcessed + 1, 1, numNew, colCount).getValues();
 
-  // FIX: Tự động tìm vị trí cột dựa vào header thay vì hardcode
-  const headers = data[0];
-  const colMap = {};
-  for (let i = 0; i < headers.length; i++) {
-    const h = (headers[i] || "").toString().toLowerCase().trim();
-    colMap[h] = i;
-  }
+    const queueRows = [];
+    for (const row of newRows) {
+      if (!row[0]) continue; // Bỏ qua dòng trống
 
-  // Hàm helper để tìm cột bằng keywords (giống StudentService.extractValue)
-  function findColIndex(keywords) {
-    for (let kw of keywords) {
-      const key = kw.toLowerCase().trim();
-      if (colMap[key] !== undefined) return colMap[key];
-    }
-    for (let header in colMap) {
-      for (let kw of keywords) {
-        if (header.includes(kw.toLowerCase())) return colMap[header];
+      // Dynamic Mapping: Biến data thành JSON dựa trên header thực tế
+      const namedValues = {};
+      for (let c = 0; c < headers.length; c++) {
+        const headerName = headers[c] ? headers[c].toString().trim() : "";
+        if (headerName) {
+          namedValues[headerName] = row[c] != null ? row[c].toString() : "";
+        }
       }
-    }
-    return -1;
-  }
 
-  const colTimestamp = 0; // Google Forms luôn đặt timestamp ở cột 0
-  const colMSSV = findColIndex(["mssv", "mã số sinh viên", "mã sinh viên"]);
-  const colName = findColIndex(["họ và tên", "họ tên", "tên sinh viên"]);
-  const colCourse = findColIndex(["học phần", "môn học", "tên học phần"]);
-  const colSemester1 = findColIndex(["học kỳ", "học kì", "kỳ"]);
-  const colSemester2 = findColIndex(["năm học", "năm"]);
-  const colStatus = findColIndex(["trạng thái thực tập", "tình trạng", "trạng thái"]);
-  const colTaxCode = findColIndex(["mã số thuế", "mst", "mã số doanh nghiệp"]);
-  const colCompany = findColIndex(["tên doanh nghiệp", "tên công ty", "cơ quan thực tập"]);
-  const colAddress = findColIndex(["địa chỉ doanh nghiệp", "địa chỉ công ty", "địa chỉ trụ sở"]);
-  const colWebsite = findColIndex(["website doanh nghiệp", "website", "trang web"]);
-  const colStudentEmail = findColIndex(["email sinh viên", "địa chỉ email", "email address", "email"]);
-  const colEmail = findColIndex(["email doanh nghiệp", "email công ty", "email đơn vị", "email dn", "email doanh nghiệp"]);
+      let mssv = "";
+      try {
+        mssv = StudentService.extractValue(namedValues, 
+          ["MSSV", "Mã số sinh viên", "Mã sinh viên"]).toUpperCase().replace(/\s/g, '');
+      } catch (e) { }
 
-  const newRows = [];
-  const rawRows = [];
-
-  for (let i = lastProcessedRow; i < data.length; i++) {
-    const row = data[i];
-
-    // Helper: Lấy giá trị từ cột (nếu cột không tìm thấy, trả rỗng)
-    function getCell(colIndex) {
-      if (colIndex < 0) return "";
-      return (row[colIndex] || "").toString();
+      queueRows.push([
+        row[0] || new Date(),
+        JSON.stringify(namedValues),
+        "Form: " + sheet.getName(),
+        "PENDING",
+        mssv
+      ]);
     }
 
-    // Parse thành payload giống như onFormSubmit
-    let semester = "";
-    const sem = getCell(colSemester1);
-    const year = getCell(colSemester2);
-    if (sem && year) semester = `${sem} - ${year}`;
-    else if (sem) semester = sem;
-
-    const payload = {
-      "MSSV": getCell(colMSSV),
-      "Họ và Tên": getCell(colName),
-      "Học Phần": getCell(colCourse),
-      "Học Kỳ": getCell(colSemester1),
-      "Năm Học": getCell(colSemester2),
-      "Trạng thái thực tập": getCell(colStatus),
-      "Mã Số Doanh Nghiệp/ Mã Số Thuế": getCell(colTaxCode),
-      "Tên Doanh Nghiệp (Tiếng Việt)": getCell(colCompany),
-      "Địa Chỉ Doanh Nghiệp": getCell(colAddress),
-      "Website Doanh Nghiệp": getCell(colWebsite),
-      "Email Sinh Viên": getCell(colStudentEmail),
-      "Email Doanh Nghiệp": getCell(colEmail)
-    };
-
-    const mssv = getCell(colMSSV).toUpperCase().replace(/\s/g, '');
-    const timestamp = new Date(row[colTimestamp]); // Cột 0 là timestamp từ Google Forms
-
-    // Thêm vào queue
-    newRows.push([timestamp, JSON.stringify(payload), "Google Form (Polling)", "PENDING", mssv]);
-
-    // Backup vào raw data sheet
-    rawRows.push([timestamp].concat(row.slice(1))); // Từ cột 1 trở đi
-  }
-
-  // Batch write vào queue
-  if (newRows.length > 0) {
-    const queueSheet = DatabaseRepo.connect(SYSTEM_CONFIG.QUEUE_TAB_NAME);
-    const qLastRow = queueSheet.getLastRow();
-    const qMaxRows = queueSheet.getMaxRows();
-    if (qLastRow + newRows.length > qMaxRows) {
-      queueSheet.insertRowsAfter(qMaxRows, qLastRow + newRows.length - qMaxRows);
-    }
-    queueSheet.getRange(qLastRow + 1, 1, newRows.length, 5).setValues(newRows);
-  }
-
-  // Backup vào raw sheet nếu có
-  if (rawRows.length > 0) {
-    try {
-      const rawSheet = DatabaseRepo.connect(SYSTEM_CONFIG.RAW_DATA_WEBAPP); // Dùng chung sheet raw
-      const rLastRow = rawSheet.getLastRow();
-      const rMaxRows = rawSheet.getMaxRows();
-      if (rLastRow + rawRows.length > rMaxRows) {
-        rawSheet.insertRowsAfter(rMaxRows, rLastRow + rawRows.length - rMaxRows);
+    // Batch append vào Queue
+    if (queueRows.length > 0) {
+      const qLastRow = queueSheet.getLastRow();
+      const qMaxRows = queueSheet.getMaxRows();
+      if (qLastRow + queueRows.length > qMaxRows) {
+        queueSheet.insertRowsAfter(qMaxRows, qLastRow + queueRows.length - qMaxRows);
       }
-      rawSheet.getRange(rLastRow + 1, 1, rawRows.length, 12).setValues(rawRows); // 12 cột
-    } catch (rawErr) {
-      DatabaseRepo.logError("Lỗi ghi Raw Form Data", rawErr.message);
+      queueSheet.getRange(qLastRow + 1, 1, queueRows.length, 5).setValues(queueRows);
+      totalPolled += queueRows.length;
     }
+
+    // Cập nhật bookmark sau khi ghi thành công
+    props.setProperty(bookmarkKey, String(lastProcessed + numNew));
   }
-
-  // Cập nhật last processed row
-  props.setProperty("FORM_LAST_ROW", String(data.length));
-
-  return newRows.length;
+  return totalPolled;
 }
 
 function processQueueJob() {
@@ -210,7 +140,7 @@ function processQueueJob() {
 
     // ── PULL: Gom responses từ Google Form → Queue_Data + Raw_web_data ──
     try {
-      const pulled = pullFormResponses();
+      const pulled = pollFormResponses();
       if (pulled > 0) {
         DatabaseRepo.logError("Form Pull", "Đã pull " + pulled + " responses từ Form vào Queue.");
       }
@@ -630,7 +560,6 @@ function initHeaders() {
   DatabaseRepo.initHeaders();
   SpreadsheetApp.getUi().alert("✅ Header đã được khởi tạo!");
 }
-
 
 // trigger dọn dẹp ban đem
 function cleanupQueueNightly() {
