@@ -44,38 +44,35 @@ function pollFormResponses() {
   let totalPolled = 0;
 
   for (const sheet of sheets) {
-    // Auto-Discovery: chỉ xử lý tab có Google Form gắn vào
+    // Auto-Discovery: Chỉ quét các tab có gắn Google Form
     let formUrl = null;
     try { formUrl = sheet.getFormUrl(); } catch (e) { continue; }
     if (!formUrl) continue;
 
     const sheetId = sheet.getSheetId();
     const bookmarkKey = "POLL_BOOKMARK_" + sheetId;
-    const lastProcessed = parseInt(props.getProperty(bookmarkKey) || "1"); // 1 = header row
+    const lastProcessed = parseInt(props.getProperty(bookmarkKey) || "1");
     const maxRow = sheet.getLastRow();
 
-    // Guard clause: bookmark corrupt (VD: GV xoá responses từ Form)
+    // Guard clause: Tránh lỗi khi GV xóa bớt dòng trong response sheet
     if (lastProcessed > maxRow) {
       props.setProperty(bookmarkKey, String(maxRow));
       continue;
     }
-
-    // Không có dòng mới → skip
     if (maxRow <= lastProcessed) continue;
 
-    // Đọc delta (chỉ dòng mới) + headers
     const numNew = Math.min(maxRow - lastProcessed, MAX_PER_SHEET);
     const colCount = sheet.getLastColumn();
     if (colCount === 0) continue;
+
     const headers = sheet.getRange(1, 1, 1, colCount).getValues()[0];
     const newRows = sheet.getRange(lastProcessed + 1, 1, numNew, colCount).getValues();
 
-    // Chuyển mỗi dòng thành namedValues JSON → push vào Queue
     const queueRows = [];
     for (const row of newRows) {
-      if (!row[0]) continue;
+      if (!row[0]) continue; // Bỏ qua dòng trống
 
-      // Dynamic Header Mapping: ghép header + data thành object
+      // Dynamic Mapping: Biến data thành JSON dựa trên header thực tế
       const namedValues = {};
       for (let c = 0; c < headers.length; c++) {
         const headerName = headers[c] ? headers[c].toString().trim() : "";
@@ -86,20 +83,20 @@ function pollFormResponses() {
 
       let mssv = "";
       try {
-        mssv = StudentService.extractValue(namedValues,
+        mssv = StudentService.extractValue(namedValues, 
           ["MSSV", "Mã số sinh viên", "Mã sinh viên"]).toUpperCase().replace(/\s/g, '');
       } catch (e) { }
 
       queueRows.push([
         row[0] || new Date(),
         JSON.stringify(namedValues),
-        "Google Form (Polling)",
+        "Form: " + sheet.getName(),
         "PENDING",
         mssv
       ]);
     }
 
-    // Batch append vào Queue_Data
+    // Batch append vào Queue
     if (queueRows.length > 0) {
       const qLastRow = queueSheet.getLastRow();
       const qMaxRows = queueSheet.getMaxRows();
@@ -110,10 +107,9 @@ function pollFormResponses() {
       totalPolled += queueRows.length;
     }
 
-    // ⑦ Cập nhật bookmark CHỈ SAU KHI ghi Queue thành công
+    // Cập nhật bookmark sau khi ghi thành công
     props.setProperty(bookmarkKey, String(lastProcessed + numNew));
   }
-
   return totalPolled;
 }
 
@@ -142,9 +138,9 @@ function processQueueJob() {
 
     // ── POLL: Quét Response Sheet của Google Form → Queue_Data ──
     try {
-      const polled = pollFormResponses();
-      if (polled > 0) {
-        DatabaseRepo.logError("Form Polling", "Đã quét " + polled + " responses mới từ Google Form.");
+      const pulled = pollFormResponses();
+      if (pulled > 0) {
+        DatabaseRepo.logError("Form Pull", "Đã pull " + pulled + " responses từ Form vào Queue.");
       }
     } catch (pollErr) {
       DatabaseRepo.logError("Lỗi Poll Form", pollErr.message);
@@ -415,6 +411,7 @@ function onOpen() {
     .addItem("📊 Cập nhật Dashboard & DS Chưa Công ty", "refreshDashboard")
     .addItem("📝 Khởi tạo Header", "initHeaders")
     .addItem("📋 Tạo Form chuẩn", "createStandardForm")
+    .addItem("🧠 Tạo báo cáo Gemini AI", "generateGeminiReport")
     .addSeparator()
     .addItem("Giả lập 400 Sinh viên nộp Form (Test Tải)", "simulate400FormSubmits")
     .addItem("Xóa toàn bộ Cache API (Dùng để Test)", "clearSystemCache")
@@ -561,7 +558,6 @@ function initHeaders() {
   DatabaseRepo.initHeaders();
   SpreadsheetApp.getUi().alert("✅ Header đã được khởi tạo!");
 }
-
 
 // trigger dọn dẹp ban đem
 function cleanupQueueNightly() {

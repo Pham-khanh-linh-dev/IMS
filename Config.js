@@ -10,6 +10,11 @@ const SYSTEM_CONFIG = {
   DICTIONARY_TAB_NAME: "Company_Dictionary",
 
   POLL_MAX_ROWS_PER_SHEET: 100,
+  
+  // Gemini AI config (Google Gemini 2.5 Flash)
+  GEMINI_MODEL: "gemini-2.5-flash",
+  GEMINI_API_KEY_PROPERTY: "GEMINI_API_KEY",
+  GEMINI_API_ENDPOINT: "https://generativelanguage.googleapis.com/v1beta/models",
 
   ALLOWED_DOMAIN: "@student.tdtu.edu.vn",
 
