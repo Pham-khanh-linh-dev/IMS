@@ -114,10 +114,8 @@ function pollFormResponses() {
 }
 
 function processQueueJob() {
-  // SỬ DỤNG DOCUMENT LOCK: Chỉ khóa thao tác trên Sheet.
-  // Không dùng ScriptLock ở đây để chừa đường cho WebApp (Tầng 1) dùng ScriptLock ghi RAM.
   const jobLock = LockService.getDocumentLock();
-  if (!jobLock.tryLock(1000)) { // 1000ms: nếu job khác đang chạy thì thoát ngay
+  if (!jobLock.tryLock(1000)) {
     DatabaseRepo.logError("Bỏ qua Batch Job", "Đã có phiên xử lý hàng đợi khác đang chạy.");
     return;
   }
@@ -138,14 +136,14 @@ function processQueueJob() {
       DatabaseRepo.logError("Lỗi Drain WebApp", drainErr.message);
     }
 
-    // ── PULL: Gom responses từ Google Form → Queue_Data + Raw_web_data ──
+    // ── POLL: Quét Response Sheet của Google Form → Queue_Data ──
     try {
       const pulled = pollFormResponses();
       if (pulled > 0) {
         DatabaseRepo.logError("Form Pull", "Đã pull " + pulled + " responses từ Form vào Queue.");
       }
-    } catch (pullErr) {
-      DatabaseRepo.logError("Lỗi Pull Form", pullErr.message);
+    } catch (pollErr) {
+      DatabaseRepo.logError("Lỗi Poll Form", pollErr.message);
     }
 
     const queueData = queueSheet.getDataRange().getValues();
@@ -156,11 +154,11 @@ function processQueueJob() {
     for (let i = 1; i < queueData.length; i++) {
       if (queueData[i][3] === "PENDING" || queueData[i][3] === "RETRY" || queueData[i][3] === "PROCESSING") activeCount++;
     }
-    if (activeCount === 0) return; // Máy chủ tự tắt cực nhanh
+    if (activeCount === 0) return;
 
     // ====== DEDUPLICATION PRE-PASS ======
-    const latestByMssv = {}; // MSSV.toUpperCase() → index trong queueData
-    const pendingCountByMssv = {}; // Đếm số lần nộp mới (PENDING) của mỗi MSSV trong batch này
+    const latestByMssv = {};
+    const pendingCountByMssv = {};
     for (let i = 1; i < queueData.length; i++) {
       const st = queueData[i][3];
       if (st !== "PENDING" && st !== "RETRY" && st !== "PROCESSING") continue;
@@ -200,7 +198,7 @@ function processQueueJob() {
       for (let i = 1; i < queueData.length; i++) {
         let status = queueData[i][3];
         if (toProcessSet.has(i)) {
-          queueData[i][5] = status; // Lưu lại status gốc để phân biệt form mới và script tự chạy lại
+          queueData[i][5] = status;
           status = "PROCESSING";
         }
         statusColumn.push([status]);
@@ -598,6 +596,24 @@ function cleanupQueueNightly() {
 
     if (totalDeleted > 0) {
       DatabaseRepo.logError("Garbage Collector", "Đã dọn dẹp " + totalDeleted + " dòng rác (DONE).");
+    }
+
+    // Dọn bookmark chết (Response Sheet đã bị xoá)
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const allKeys = props.getKeys();
+      const existingIds = new Set(getMasterSpreadsheet_().getSheets().map(function (s) { return String(s.getSheetId()); }));
+      for (const key of allKeys) {
+        if (key.startsWith("POLL_BOOKMARK_")) {
+          const id = key.replace("POLL_BOOKMARK_", "");
+          if (!existingIds.has(id)) {
+            props.deleteProperty(key);
+            DatabaseRepo.logError("Dọn Bookmark", "Đã xoá bookmark chết: " + key);
+          }
+        }
+      }
+    } catch (bmErr) {
+      console.error("Lỗi dọn bookmark: " + bmErr.message);
     }
 
     // Refresh Dashboard and No Company List every night automatically
