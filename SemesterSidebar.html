@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h3>Chọn học kỳ Dashboard</h3>
+
+    <select id="semester" style="width:100%; padding:8px;"></select>
+
+    <br><br>
+
+    <button onclick="saveSemester()">Áp dụng</button>
+    <button onclick="resetSemester()">Dùng kỳ mới nhất</button>
+
+    <p id="status"></p>
+
+    <script>
+      google.script.run.withSuccessHandler(function (data) {
+        const select = document.getElementById("semester");
+        select.innerHTML = "";
+
+        data.semesters.forEach(function (s) {
+          const opt = document.createElement("option");
+          opt.value = s;
+          opt.textContent = s;
+
+          if (s === data.selectedSemester) {
+            opt.selected = true;
+          }
+
+          select.appendChild(opt);
+        });
+
+        if (data.semesters.length === 0) {
+          document.getElementById("status").textContent =
+            "Không có học kỳ nào trong Students_Data.";
+        }
+      }).getDashboardSemesterOptions();
+
+      function saveSemester() {
+        const value = document.getElementById("semester").value;
+
+        google.script.run
+          .withSuccessHandler(function () {
+            document.getElementById("status").textContent =
+              "Đã áp dụng học kỳ.";
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById("status").textContent =
+              "Lỗi: " + err.message;
+          })
+          .setDashboardSemester(value);
+      }
+
+      function resetSemester() {
+        google.script.run
+          .withSuccessHandler(function () {
+            document.getElementById("status").textContent =
+              "Đã reset về kỳ mới nhất.";
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById("status").textContent =
+              "Lỗi: " + err.message;
+          })
+          .resetDashboardSemester();
+      }
+    </script>
+  </body>
+</html>
