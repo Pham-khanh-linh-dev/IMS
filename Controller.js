@@ -409,6 +409,8 @@ function onOpen() {
     .addItem("🧹 Cài Trigger dọn rác ban đêm", "setupNightlyCleanupTrigger")
     .addSeparator()
     .addItem("📊 Cập nhật Dashboard & DS Chưa Công ty", "refreshDashboard")
+    .addItem("🗓️ Chọn học kỳ Dashboard", "showDashboardSemesterSidebar")
+    .addItem("🗑️ Reset Dashboard về kỳ mới nhất", "resetDashboardSemester")
     .addItem("📝 Khởi tạo Header", "initHeaders")
     .addItem("📋 Tạo Form chuẩn", "createStandardForm")
     .addItem("🧠 Tạo báo cáo Gemini AI", "generateGeminiReport")
@@ -633,4 +635,99 @@ function setupNightlyCleanupTrigger() {
 
   cleanupQueueNightly();
   SpreadsheetApp.getUi().alert("✅ Đã cài đặt tự động dọn rác (DONE) trong hàng đợi vào 2h sáng mỗi ngày!");
+}
+
+const DASHBOARD_SELECTED_SEMESTER_KEY =
+  "DASHBOARD_SELECTED_SEMESTER";
+
+
+function showDashboardSemesterSidebar() {
+
+  const html = HtmlService
+    .createHtmlOutputFromFile("SemesterSidebar")
+    .setTitle("Chọn học kỳ Dashboard");
+
+  SpreadsheetApp
+    .getUi()
+    .showSidebar(html);
+}
+
+
+// Alias để tránh lỗi menu cache cũ
+function chooseDashboardSemester() {
+  showDashboardSemesterSidebar();
+}
+
+
+function getDashboardSemesterOptions() {
+
+  const sheet =
+    DatabaseRepo.connect(
+      SYSTEM_CONFIG.DATA_TAB_NAME
+    );
+
+  const data =
+    sheet.getDataRange().getValues();
+
+  const semesters =
+    DatabaseRepo._getAvailableSemesters(data);
+
+  const selected =
+    PropertiesService
+      .getScriptProperties()
+      .getProperty(
+        DASHBOARD_SELECTED_SEMESTER_KEY
+      );
+
+  return {
+    semesters: semesters,
+    selectedSemester:
+      selected || semesters[0] || "",
+    mode:
+      selected
+        ? "đã chọn thủ công"
+        : "mặc định (kỳ mới nhất)"
+  };
+}
+
+
+function setDashboardSemester(semester) {
+
+  const selected =
+    (semester || "")
+      .toString()
+      .trim();
+
+  const options =
+    getDashboardSemesterOptions();
+
+  if (
+    !selected ||
+    options.semesters.indexOf(selected) < 0
+  ) {
+    throw new Error(
+      "Học kỳ không hợp lệ."
+    );
+  }
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      DASHBOARD_SELECTED_SEMESTER_KEY,
+      selected
+    );
+
+  DatabaseRepo.generateStatistics();
+}
+
+
+function resetDashboardSemester() {
+
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty(
+      DASHBOARD_SELECTED_SEMESTER_KEY
+    );
+
+  DatabaseRepo.generateStatistics();
 }

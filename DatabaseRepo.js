@@ -253,9 +253,106 @@ const DatabaseRepo = {
 
 
   //  DASHBOARD — Thống kê realtime, nhiều chiều và tự động xuất danh sách Chưa có công ty
+    _getSemesterRank: function (semester) {
+    const text = (semester || "").toString().trim();
+
+    let term = 0;
+
+    const termMatch =
+      text.match(/(?:Học\s*Kỳ|HK|Kỳ)\s*(\d+)/i);
+
+    if (termMatch) {
+      term = parseInt(termMatch[1], 10);
+    }
+
+    const years = text.match(/\d{4}/g) || [];
+
+    let latestYear = 0;
+
+    for (let i = 0; i < years.length; i++) {
+      const y = parseInt(years[i], 10);
+
+      if (y > latestYear) {
+        latestYear = y;
+      }
+    }
+
+    return latestYear * 10 + term;
+  },
+
+
+  _getAvailableSemesters: function (sheetData) {
+
+    const set = {};
+
+    for (let i = 1; i < sheetData.length; i++) {
+
+      const semester =
+        (sheetData[i][SYSTEM_CONFIG.COL.SEMESTER] || "")
+          .toString()
+          .trim();
+
+      if (semester) {
+        set[semester] = true;
+      }
+    }
+
+    return Object.keys(set).sort((a, b) => {
+      return this._getSemesterRank(b)
+        - this._getSemesterRank(a);
+    });
+  },
+
+
+  _getDashboardSemesterContext: function (sheetData) {
+
+    const props =
+      PropertiesService.getScriptProperties();
+
+    const selected =
+      (
+        props.getProperty("DASHBOARD_SELECTED_SEMESTER")
+        || ""
+      )
+        .toString()
+        .trim();
+
+    const semesters =
+      this._getAvailableSemesters(sheetData);
+
+    if (
+      selected &&
+      semesters.indexOf(selected) >= 0
+    ) {
+      return {
+        targetSemester: selected,
+        mode: "đã chọn thủ công",
+        semesters: semesters
+      };
+    }
+
+    return {
+      targetSemester: semesters[0] || "",
+      mode: "mặc định (kỳ mới nhất)",
+      semesters: semesters
+    };
+  },
+  
   generateStatistics: function () {
-    const sheetData = this.connect(SYSTEM_CONFIG.DATA_TAB_NAME).getDataRange().getValues();
-    const dash = this.connect(SYSTEM_CONFIG.DASHBOARD_TAB_NAME);
+    const sheetData =
+      this.connect(SYSTEM_CONFIG.DATA_TAB_NAME)
+        .getDataRange()
+        .getValues();
+
+    const semesterContext =
+      this._getDashboardSemesterContext(sheetData);
+
+    const targetSemester =
+      semesterContext.targetSemester;
+
+    const dash =
+      this.connect(SYSTEM_CONFIG.DASHBOARD_TAB_NAME);
+
     dash.clear();
 
     let haveCompany = 0, noCompany = 0;
@@ -267,15 +364,43 @@ const DatabaseRepo = {
 
     for (let i = 1; i < sheetData.length; i++) {
       const row = sheetData[i];
-      const status = row[SYSTEM_CONFIG.COL.STATUS_INTERN];
-      const tax = row[SYSTEM_CONFIG.COL.TAX_CODE];
-      const apiName = row[SYSTEM_CONFIG.COL.COMPANY_API];
-      const course = row[SYSTEM_CONFIG.COL.COURSE] || "Không rõ";
-      const verify = row[SYSTEM_CONFIG.COL.STATUS_VERIFY] || "";
-      const mssv = row[SYSTEM_CONFIG.COL.MSSV];
-      const name = row[SYSTEM_CONFIG.COL.NAME];
-      const lastUp = row[SYSTEM_CONFIG.COL.TIME];
-      const semester = row[SYSTEM_CONFIG.COL.SEMESTER] || "";
+
+      const semester =
+        (row[SYSTEM_CONFIG.COL.SEMESTER] || "")
+          .toString()
+          .trim();
+
+      // FILTER THEO HỌC KỲ
+      if (
+        targetSemester &&
+        semester !== targetSemester
+      ) {
+        continue;
+      }
+
+      const status =
+        row[SYSTEM_CONFIG.COL.STATUS_INTERN];
+
+      const tax =
+        row[SYSTEM_CONFIG.COL.TAX_CODE];
+
+      const apiName =
+        row[SYSTEM_CONFIG.COL.COMPANY_API];
+
+      const course =
+        row[SYSTEM_CONFIG.COL.COURSE] || "Không rõ";
+
+      const verify =
+        row[SYSTEM_CONFIG.COL.STATUS_VERIFY] || "";
+
+      const mssv =
+        row[SYSTEM_CONFIG.COL.MSSV];
+
+      const name =
+        row[SYSTEM_CONFIG.COL.NAME];
+
+      const lastUp =
+        row[SYSTEM_CONFIG.COL.TIME];
 
       if (!courseStats[course]) courseStats[course] = { have: 0, no: 0 };
 
@@ -325,8 +450,40 @@ const DatabaseRepo = {
 
 
     let r = 1;
+
     const total = haveCompany + noCompany;
-    const pct = (n) => total > 0 ? Math.round(n / total * 100) + "%" : "0%";
+
+    const pct = (n) =>
+      total > 0
+        ? Math.round(n / total * 100) + "%"
+        : "0%";
+
+    // ===== HEADER HỌC KỲ =====
+    dash.getRange(r, 1, 1, 4).setValues([[
+      "Học kỳ đang xem",
+      targetSemester || "Không có dữ liệu",
+      "Chế độ",
+      semesterContext.mode
+    ]]);
+
+    dash.getRange(r, 1, 1, 4)
+      .setFontWeight("bold")
+      .setBackground("#d9ead3");
+
+    r++;
+
+    dash.getRange(r, 1, 1, 4).setValues([[
+      "Thời điểm cập nhật",
+      Utilities.formatDate(
+        new Date(),
+        Session.getScriptTimeZone(),
+        "yyyy-MM-dd HH:mm:ss"
+      ),
+      "",
+      ""
+    ]]);
+
+    r += 2;
 
     // Đảm bảo Dash đủ dòng cho lượng công ty
     const requiredRows = Object.keys(companyStats).length + Object.keys(courseStats).length + 20;
