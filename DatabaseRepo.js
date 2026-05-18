@@ -458,31 +458,88 @@ const DatabaseRepo = {
         ? Math.round(n / total * 100) + "%"
         : "0%";
 
-    // ===== HEADER HỌC KỲ =====
-    dash.getRange(r, 1, 1, 4).setValues([[
-      "Học kỳ đang xem",
-      targetSemester || "Không có dữ liệu",
-      "Chế độ",
-      semesterContext.mode
-    ]]);
+    const updatedAt = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd HH:mm:ss"
+    );
 
-    dash.getRange(r, 1, 1, 4)
+    // ===== DASHBOARD HEADER =====
+    const dropdownDefaultText = "🔄 Học kỳ mới nhất (mặc định)";
+    const currentDropdownValue =
+      semesterContext.mode === "đã chọn thủ công"
+        ? targetSemester
+        : dropdownDefaultText;
+
+    // ===== TITLE =====
+    dash.getRange(r, 1, 1, 6).merge();
+    dash.getRange(r, 1).setValue("🎓 DASHBOARD THỰC TẬP");
+    dash.getRange(r, 1)
+      .setFontSize(18)
+      .setFontWeight("bold")
+      .setFontColor("white")
+      .setBackground("#1f4e79")
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle");
+    dash.setRowHeight(r, 42);
+    r++;
+
+    // ===== SEMESTER CONTROL =====
+    dash.getRange(r, 1, 1, 2).merge();
+    dash.getRange(r, 1).setValue("📅 Chọn học kỳ xem");
+    dash.getRange(r, 1)
       .setFontWeight("bold")
       .setBackground("#d9ead3");
 
+    // Ô dropdown học kỳ nằm ở C2:D2
+    const semesterControlRange = dash.getRange(r, 3, 1, 2);
+
+    semesterControlRange.breakApart();
+    semesterControlRange.clearContent();
+    semesterControlRange.clearDataValidations();
+
+    semesterControlRange.merge();
+
+    const semesterOptions = [dropdownDefaultText].concat(semesterContext.semesters || []);
+
+    const rule = SpreadsheetApp
+      .newDataValidation()
+      .requireValueInList(semesterOptions, true)
+      .setAllowInvalid(false)
+      .build();
+
+    // Set value trước, sau đó mới gắn rule mới
+    dash.getRange(r, 3).setValue(currentDropdownValue);
+    dash.getRange(r, 3).setDataValidation(rule);
+
+    dash.getRange(r, 3, 1, 2)
+      .setBackground("white")
+      .setFontWeight("bold")
+      .setHorizontalAlignment("center")
+      .setBorder(
+        true, true, true, true,
+        false, false,
+        "#b7b7b7",
+        SpreadsheetApp.BorderStyle.SOLID
+      );
+
+    dash.setRowHeight(r, 34);
     r++;
 
-    dash.getRange(r, 1, 1, 4).setValues([[
-      "Thời điểm cập nhật",
-      Utilities.formatDate(
-        new Date(),
-        Session.getScriptTimeZone(),
-        "yyyy-MM-dd HH:mm:ss"
-      ),
-      "",
-      ""
-    ]]);
+    // ===== UPDATED TIME =====
+    dash.getRange(r, 1, 1, 2).merge();
+    dash.getRange(r, 1).setValue("🕒 Thời điểm cập nhật");
+    dash.getRange(r, 1)
+      .setFontWeight("bold")
+      .setBackground("#eef5e9");
 
+    dash.getRange(r, 3, 1, 2).merge();
+    dash.getRange(r, 3).setValue(updatedAt);
+    dash.getRange(r, 3, 1, 2)
+      .setBackground("#f8f9fa")
+      .setHorizontalAlignment("center");
+
+    dash.setRowHeight(r, 28);
     r += 2;
 
     // Đảm bảo Dash đủ dòng cho lượng công ty
@@ -544,7 +601,20 @@ const DatabaseRepo = {
     }
     r++;
 
-    dash.autoResizeColumns(1, 4);
+    dash.setFrozenRows(4);
+    dash.autoResizeColumns(1, 6);
+
+    dash.getRange(1, 1, dash.getMaxRows(), 6)
+      .setFontFamily("Arial")
+      .setVerticalAlignment("middle")
+      .setWrap(true);
+
+    dash.setColumnWidth(1, 250);
+    dash.setColumnWidth(2, 140);
+    dash.setColumnWidth(3, 180);
+    dash.setColumnWidth(4, 160);
+    dash.setColumnWidth(5, 160);
+    dash.setColumnWidth(6, 180);
   },
 
   logError: function (msg, context) {

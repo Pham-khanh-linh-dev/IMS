@@ -409,8 +409,6 @@ function onOpen() {
     .addItem("🧹 Cài Trigger dọn rác ban đêm", "setupNightlyCleanupTrigger")
     .addSeparator()
     .addItem("📊 Cập nhật Dashboard & DS Chưa Công ty", "refreshDashboard")
-    .addItem("🗓️ Chọn học kỳ Dashboard", "showDashboardSemesterSidebar")
-    .addItem("🗑️ Reset Dashboard về kỳ mới nhất", "resetDashboardSemester")
     .addItem("📝 Khởi tạo Header", "initHeaders")
     .addItem("📋 Tạo Form chuẩn", "createStandardForm")
     .addItem("🧠 Tạo báo cáo Gemini AI", "generateGeminiReport")
@@ -730,4 +728,34 @@ function resetDashboardSemester() {
     );
 
   DatabaseRepo.generateStatistics();
+}
+
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+
+    const sheet = e.range.getSheet();
+    if (sheet.getName() !== SYSTEM_CONFIG.DASHBOARD_TAB_NAME) return;
+
+    const row = e.range.getRow();
+    const col = e.range.getColumn();
+
+    // Dropdown học kỳ nằm ở ô C2.
+    if (row !== 2 || col !== 3) return;
+
+    const selected = (e.value || "").toString().trim();
+    const defaultText = "🔄 Học kỳ mới nhất (mặc định)";
+    const props = PropertiesService.getScriptProperties();
+
+    if (!selected || selected === defaultText) {
+      props.deleteProperty("DASHBOARD_SELECTED_SEMESTER");
+    } else {
+      props.setProperty("DASHBOARD_SELECTED_SEMESTER", selected);
+    }
+
+    DatabaseRepo.generateStatistics();
+
+  } catch (err) {
+    DatabaseRepo.logError("Lỗi onEdit Dashboard Semester", err.message);
+  }
 }
